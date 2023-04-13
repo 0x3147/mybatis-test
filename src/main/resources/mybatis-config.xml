@@ -1,27 +1,56 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE configuration
         PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-config.dtd">
-
 <configuration>
     <settings>
-        <!--   驼峰命名转化  -->
+        <!-- goods_id ==> goodsId 驼峰命名转换 -->
         <setting name="mapUnderscoreToCamelCase" value="true"/>
     </settings>
-
+    <!--启用Pagehelper分页插件-->
+    <plugins>
+        <plugin interceptor="com.github.pagehelper.PageInterceptor">
+            <!--设置数据库类型-->
+            <property name="helperDialect" value="mysql"/>
+            <!--分页合理化-->
+            <property name="reasonable" value="true"/>
+        </plugin>
+    </plugins>
+    
+    <!--设置默认指向的数据库-->
     <environments default="dev">
+        <!--配置环境，不同的环境不同的id名字-->
         <environment id="dev">
-            <transactionManager type="JDBC"/>
+            <!-- 采用JDBC方式对数据库事务进行commit/rollback -->
+            <transactionManager type="JDBC"></transactionManager>
+            <!--采用连接池方式管理数据库连接-->
+            <!--<dataSource type="POOLED">-->
+            <dataSource type="com.imooc.mybatis.datasource.C3P0DataSourceFactory">
+                <property name="driverClass" value="com.mysql.jdbc.Driver"/>
+                <property name="jdbcUrl" value="jdbc:mysql://localhost:3306/babytun?useUnicode=true&amp;characterEncoding=UTF-8"/>
+                <property name="user" value="root"/>
+                <property name="password" value="root"/>
+                <property name="initialPoolSize" value="5"/>
+                <property name="maxPoolSize" value="20"/>
+                <property name="minPoolSize" value="5"/>
+                <!--...-->
+            </dataSource>
+        </environment>
+        <environment id="prd">
+            <!-- 采用JDBC方式对数据库事务进行commit/rollback -->
+            <transactionManager type="JDBC"></transactionManager>
+            <!--采用连接池方式管理数据库连接-->
             <dataSource type="POOLED">
-                <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
-                <property name="url" value="jdbc:mysql://localhost:3306/babytun?useUnicode=true&amp;characterEncoding=UTF-8"/>
+                <property name="driver" value="com.mysql.jdbc.Driver"/>
+                <property name="url" value="jdbc:mysql://192.168.1.155:3306/babytun?useUnicode=true&amp;characterEncoding=UTF-8"/>
                 <property name="username" value="root"/>
-                <property name="password" value="1234"/>
+                <property name="password" value="root"/>
             </dataSource>
         </environment>
     </environments>
 
     <mappers>
-        <mapper resource="mappers/goods.xml" />
+        <mapper resource="mappers/goods.xml"/>
+        <mapper resource="mappers/goods_detail.xml"/>
     </mappers>
 </configuration>

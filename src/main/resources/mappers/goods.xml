@@ -1,22 +1,153 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
 <mapper namespace="goods">
-    <select id="selectAll" resultType="com.kk.mybatis.entity.Goods">
+    <!--开启了二级缓存
+        eviction是缓存的清除策略,当缓存对象数量达到上限后,自动触发对应算法对缓存对象清除
+            1.LRU – 最近最久未使用:移除最长时间不被使用的对象。
+            O1 O2 O3 O4 .. O512
+            14 99 83 1     893
+            2.FIFO – 先进先出:按对象进入缓存的顺序来移除它们。
+            3.SOFT – 软引用:移除基于垃圾收集器状态和软引用规则的对象。
+            4.WEAK – 弱引用:更积极的移除基于垃圾收集器状态和弱引用规则的对象。
+    -->
+    <cache eviction="LRU" flushInterval="600000" size="512" readOnly="true"/>
+    <select id="selectAll" resultType="com.imooc.mybatis.entity.Goods" useCache="false">
         select * from t_goods order by goods_id desc limit 10
     </select>
-
-    <select id="selectById" parameterType="Integer" resultType="com.kk.mybatis.entity.Goods">
-        select * from t_goods where goods_id = #{value}
+    <!-- 单参数传递,使用parameterType指定参数的数据类型即可,SQL中#{value}提取参数-->
+    <select id="selectById" parameterType="Integer" resultType="com.imooc.mybatis.entity.Goods">
+        select * from t_goods where  goods_id = #{value}
     </select>
 
-    <select id="selectByPriceRange" parameterType="java.util.Map" resultType="com.kk.mybatis.entity.Goods">
+    <!-- 多参数传递时,使用parameterType指定Map接口,SQL中#{key}提取参数 -->
+    <select id="selectByPriceRange" parameterType="java.util.Map" resultType="com.imooc.mybatis.entity.Goods">
         select * from t_goods
         where
-            current_price between #{min} and #{max}
+          current_price between  #{min} and #{max}
         order by current_price
-        limit 0, #{limit}
+        limit 0,#{limt}
     </select>
+
+    <!-- 利用LinkedHashMap保存多表关联结果
+        MyBatis会将每一条记录包装为LinkedHashMap对象
+        key是字段名  value是字段对应的值 , 字段类型根据表结构进行自动判断
+        优点: 易于扩展,易于使用
+        缺点: 太过灵活,无法进行编译时检查
+     -->
+    <select id="selectGoodsMap" resultType="java.util.LinkedHashMap" flushCache="true">
+        select g.* , c.category_name,'1' as test from t_goods g , t_category c
+        where g.category_id = c.category_id
+    </select>
+
+    <!--结果映射-->
+    <resultMap id="rmGoods" type="com.imooc.mybatis.dto.GoodsDTO">
+        <!--设置主键字段与属性映射-->
+        <id property="goods.goodsId" column="goods_id"></id>
+        <!--设置非主键字段与属性映射-->
+        <result property="goods.title" column="title"></result>
+        <result property="goods.originalCost" column="original_cost"></result>
+        <result property="goods.currentPrice" column="current_price"></result>
+        <result property="goods.discount" column="discount"></result>
+        <result property="goods.isFreeDelivery" column="is_free_delivery"></result>
+        <result property="goods.categoryId" column="category_id"></result>
+        <result property="category.categoryId" column="category_id"></result>
+        <result property="category.categoryName" column="category_name"></result>
+        <result property="category.parentId" column="parent_id"></result>
+        <result property="category.categoryLevel" column="category_level"></result>
+        <result property="category.categoryOrder" column="category_order"></result>
+
+
+        <result property="test" column="test"/>
+    </resultMap>
+    <select id="selectGoodsDTO" resultMap="rmGoods">
+        select g.* , c.*,'1' as test from t_goods g , t_category c
+        where g.category_id = c.category_id
+    </select>
+    <!--flushCache="true"在sql执行后强制清空缓存-->
+    <insert id="insert" parameterType="com.imooc.mybatis.entity.Goods" flushCache="true">
+        INSERT INTO t_goods(title, sub_title, original_cost, current_price, discount, is_free_delivery, category_id)
+        VALUES (#{title} , #{subTitle} , #{originalCost}, #{currentPrice}, #{discount}, #{isFreeDelivery}, #{categoryId})
+      <!--<selectKey resultType="Integer" keyProperty="goodsId" order="AFTER">-->
+          <!--select last_insert_id()-->
+      <!--</selectKey>-->
+    </insert>
+
+    <update id="update" parameterType="com.imooc.mybatis.entity.Goods">
+        UPDATE t_goods
+        SET
+          title = #{title} ,
+          sub_title = #{subTitle} ,
+          original_cost = #{originalCost} ,
+          current_price = #{currentPrice} ,
+          discount = #{discount} ,
+          is_free_delivery = #{isFreeDelivery} ,
+          category_id = #{categoryId}
+        WHERE
+          goods_id = #{goodsId}
+    </update>
+    <!--delete from t_goods where goods_id in (1920,1921)-->
+    <delete id="delete" parameterType="Integer">
+        delete from t_goods where goods_id = #{value}
+    </delete>
+
+    <select id="selectByTitle" parameterType="java.util.Map" resultType="com.imooc.mybatis.entity.Goods">
+        select * from t_goods where title = #{title}
+        ${order}
+    </select>
+
+    <select id="dynamicSQL" parameterType="java.util.Map" resultType="com.imooc.mybatis.entity.Goods">
+        select * from t_goods
+        <where>
+          <if test="categoryId != null">
+              and category_id = #{categoryId}
+          </if>
+          <if test="currentPrice != null">
+              and current_price &lt; #{currentPrice}
+          </if>
+        </where>
+    </select>
+
+    <!--
+        resultMap可用于说明一对多或者多对一的映射逻辑
+        id 是resultMap属性引用的标志
+        type 指向One的实体(Goods)
+    -->
+    <resultMap id="rmGoods1" type="com.imooc.mybatis.entity.Goods">
+        <!-- 映射goods对象的主键到goods_id字段 -->
+        <id column="goods_id" property="goodsId"></id>
+        <!--
+            collection的含义是,在
+            select * from t_goods limit 0,1 得到结果后,对所有Goods对象遍历得到goods_id字段值,
+            并代入到goodsDetail命名空间的findByGoodsId的SQL中执行查询,
+            将得到的"商品详情"集合赋值给goodsDetails List对象.
+        -->
+        <collection property="goodsDetails" select="goodsDetail.selectByGoodsId"
+                    column="goods_id"/>
+    </resultMap>
+    <select id="selectOneToMany" resultMap="rmGoods1">
+        select * from t_goods limit 0,10
+    </select>
+
+    <select id="selectPage" resultType="com.imooc.mybatis.entity.Goods">
+        select * from t_goods where current_price &lt; 1000
+    </select>
+
+    <!--INSERT INTO table-->
+    <!--VALUES ("a" , "a1" , "a2"),("b" , "b1" , "b2"),(....)-->
+    <insert id="batchInsert" parameterType="java.util.List">
+        INSERT INTO t_goods(title, sub_title, original_cost, current_price, discount, is_free_delivery, category_id)
+        VALUES
+        <foreach collection="list" item="item" index="index" separator=",">
+            (#{item.title},#{item.subTitle}, #{item.originalCost}, #{item.currentPrice}, #{item.discount}, #{item.isFreeDelivery}, #{item.categoryId})
+        </foreach>
+    </insert>
+    <!--in (1901,1902)-->
+    <delete id="batchDelete" parameterType="java.util.List">
+        DELETE FROM t_goods WHERE goods_id in
+        <foreach collection="list" item="item" index="index" open="(" close=")" separator=",">
+            #{item}
+        </foreach>
+    </delete>
 </mapper>
